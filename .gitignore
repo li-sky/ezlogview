@@ -25,6 +25,5 @@ dist-ssr
 
 
 # package locks
-package-lock.json
 yarn.lock
 bun.lock
