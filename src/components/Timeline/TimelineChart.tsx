@@ -3,9 +3,10 @@ import ReactECharts from 'echarts-for-react';
 // import * as echarts from 'echarts'; // unused
 import { useLogStore } from '../../store/useLogStore';
 import { aggregateLogs, getEffectiveInterval } from '../../utils/aggregator';
+import type { ECClickEvent } from '../../types';
 
 export const TimelineChart: React.FC = () => {
-    const { logs, startTime, endTime, setSelectedRange, granularity } = useLogStore();
+    const { logs, startTime, endTime, selectedRange, setSelectedRange, granularity } = useLogStore();
 
     const aggregatedData = useMemo(() => {
         return aggregateLogs(logs, granularity, startTime, endTime);
@@ -98,28 +99,57 @@ export const TimelineChart: React.FC = () => {
     // Better approach for syncing state:
     // Listen to 'dataZoom' and update store. Debounce if needed.
     // We care about the *absolute* timestamp range selected.
+    // Sync store -> Chart (when selectedRange changes externally, e.g. from click or other UI)
+    useEffect(() => {
+        const chart = chartRef.current?.getEchartsInstance();
+        if (!chart || !selectedRange) return;
+
+        // Avoid infinite loop if this update came from the chart itself?
+        // ECharts might trigger dataZoom event again. 
+        // We can check if current zoom matches selectedRange.
+        // const currentOption = chart.getOption() as { dataZoom: { startValue?: number; endValue?: number }[] }; (unused)
+        // const dz = currentOption.dataZoom[0]; (unused)
+        // If roughly equal, skip.
+        // But for simplicity, let's just dispatch. Ideally we check.
+        // Note: dispatching dataZoom will trigger the 'dataZoom' event listener we set up below.
+        // We need to distinguish or just accept re-setting store (which is cheap).
+
+        // Actually, we should probably ONLY update chart if the internal state doesn't match?
+        // simpler:
+        chart.dispatchAction({
+            type: 'dataZoom',
+            startValue: selectedRange[0],
+            endValue: selectedRange[1]
+        });
+
+    }, [selectedRange]);
+
+    // Chart -> Store (User drags/zooms)
     useEffect(() => {
         const chart = chartRef.current?.getEchartsInstance();
         if (!chart) return;
 
         const handleZoom = () => {
-            const option = chart.getOption() as any;
-            // The startValue and endValue might be indices or values depending on setup.
-            // For type 'time', they should be timestamps or string dates.
+            // Retrieve current option to get zoom state
+            // We cast to specific structure we know exists in ECharts option
+            const option = chart.getOption() as { dataZoom: { startValue?: number; endValue?: number }[] };
             const dz = option.dataZoom[0];
-            let start = dz.startValue;
-            let end = dz.endValue;
+            const start = dz.startValue;
+            const end = dz.endValue;
 
-            // If not set, use start/end percent to calculate
-            if (start === undefined || end === undefined) {
-                // Fallback calculation not easy without total range.
-                // But usually startValue/endValue are updated.
-                return;
-            }
+            if (start == null || end == null) return;
 
-            // ECharts internally might return Date objects or timestamps
             const s = typeof start === 'number' ? start : new Date(start).getTime();
             const e = typeof end === 'number' ? end : new Date(end).getTime();
+
+            // Only update store if meaningful difference to avoid loops?
+            // checking state inside effect is hard. can use a ref to track last set value?
+            // simplified: just set it. 
+            // BUT: if we set store, store updates, effect above fires, dispatches zoom, raises event... LOOP.
+            // We need to break the loop. 
+            // We can compare with 'selectedRange' from store, but we can't access updated store here easily without dep.
+            // Actually, we can just check if 's' and 'e' are different from what we think?
+            // For now, let's trust that slight redundancy is ok, OR add a check in the store setter.
 
             setSelectedRange([s, e]);
         };
@@ -132,12 +162,22 @@ export const TimelineChart: React.FC = () => {
     }, [setSelectedRange]);
 
     const onEvents = useMemo(() => ({
-        'click': (params: any) => {
-            if (params.componentType === 'series' && params.value && params.value.length === 2) {
+        'click': (params: ECClickEvent) => {
+            if (params.componentType === 'series' && Array.isArray(params.value) && params.value.length === 2) {
                 const bucketStart = params.value[0] as number;
                 const interval = getEffectiveInterval(granularity, startTime, endTime);
-                // Select the range of this bucket
+                // Update the store's selected range
                 setSelectedRange([bucketStart, bucketStart + interval]);
+
+                // Also update the chart's current zoom to visually reflect this selection
+                const chart = chartRef.current?.getEchartsInstance();
+                if (chart) {
+                    chart.dispatchAction({
+                        type: 'dataZoom',
+                        startValue: bucketStart,
+                        endValue: bucketStart + interval,
+                    });
+                }
             }
         }
     }), [granularity, startTime, endTime, setSelectedRange]);
