@@ -6,26 +6,72 @@ interface LogRowProps {
     log: LogEntry;
     isDimmed: boolean;
     style?: React.CSSProperties;
+    searchQuery?: string;
+    isFocused?: boolean;
 }
 
-const HIGHLIGHT_REGEX = /((?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?))|(\b(?:ERROR|FAIL|FATAL|WARN|WARNING|INFO)\b)|(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)|(0x[0-9A-F]+)/gi;
+const HIGHLIGHT_REGEX = /((?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?))|(\\b(?:ERROR|FAIL|FATAL|WARN|WARNING|INFO)\\b)|(\\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\\b)|(0x[0-9A-F]+)/gi;
 
 // Simple highlighter: split by regex and colorize
-const HighlightedText: React.FC<{ text: string }> = React.memo(({ text }) => {
-    // const parts = text.split(HIGHLIGHT_REGEX).filter(part => part !== undefined && part !== ''); // unused
+const HighlightedText: React.FC<{ text: string; searchQuery?: string }> = React.memo(({ text, searchQuery }) => {
+    // If there's a search query, highlight it first
+    if (searchQuery && searchQuery.trim()) {
+        return <SearchHighlightedText text={text} searchQuery={searchQuery} />;
+    }
 
-    // Basic heuristic to identify what each part matched. 
-    // Ideally use matchAll to get groups or indices.
-    // This split method is a bit weak because we lose context of which group matched.
-    // Better approach: matchAll and rebuild string.
+    return <SyntaxHighlightedText text={text} />;
+});
 
-    // Re-implementation using matchAll for correctness
+// Component to highlight search matches
+const SearchHighlightedText: React.FC<{ text: string; searchQuery: string }> = React.memo(({ text, searchQuery }) => {
+    const query = searchQuery.toLowerCase();
+    const fragments: React.ReactNode[] = [];
+    let lastIndex = 0;
+    const textLower = text.toLowerCase();
+
+    let searchIndex = textLower.indexOf(query);
+    let keyIndex = 0;
+
+    while (searchIndex !== -1) {
+        // Add text before match with syntax highlighting
+        if (searchIndex > lastIndex) {
+            fragments.push(
+                <SyntaxHighlightedText key={`pre-${keyIndex}`} text={text.slice(lastIndex, searchIndex)} />
+            );
+        }
+
+        // Add highlighted match
+        const matchEnd = searchIndex + query.length;
+        fragments.push(
+            <mark
+                key={`match-${keyIndex}`}
+                className="bg-yellow-500/40 text-yellow-100 rounded-sm px-0.5"
+            >
+                {text.slice(searchIndex, matchEnd)}
+            </mark>
+        );
+
+        lastIndex = matchEnd;
+        keyIndex++;
+        searchIndex = textLower.indexOf(query, lastIndex);
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+        fragments.push(
+            <SyntaxHighlightedText key={`tail-${keyIndex}`} text={text.slice(lastIndex)} />
+        );
+    }
+
+    return <>{fragments}</>;
+});
+
+// Component for syntax highlighting (timestamps, levels, IPs, hex)
+const SyntaxHighlightedText: React.FC<{ text: string }> = React.memo(({ text }) => {
     const fragments: React.ReactNode[] = [];
     let lastIndex = 0;
 
-    // Reset regex state if needed (not needed for local var with matchAll, but good hygiene)
-    const regex = new RegExp(HIGHLIGHT_REGEX); // Clone
-
+    const regex = new RegExp(HIGHLIGHT_REGEX);
     const matches = [...text.matchAll(regex)];
 
     if (matches.length === 0) return <span>{text}</span>;
@@ -68,16 +114,18 @@ const HighlightedText: React.FC<{ text: string }> = React.memo(({ text }) => {
     return <>{fragments}</>;
 });
 
-export const LogRow: React.FC<LogRowProps> = React.memo(({ log, isDimmed, style }) => {
+export const LogRow: React.FC<LogRowProps> = React.memo(({ log, isDimmed, style, searchQuery, isFocused }) => {
     return (
         <div
             style={style}
             className={clsx(
-                "font-mono text-sm whitespace-pre px-4 py-0.5 border-b border-zinc-800/50 hover:bg-zinc-800/50",
+                "font-mono text-sm whitespace-pre px-4 py-0.5 border-b border-zinc-800/50 hover:bg-zinc-800/50 transition-colors",
                 isDimmed ? "opacity-30" : "opacity-100",
                 // Line styling based on level
                 log.level === 'ERROR' && !isDimmed && "bg-red-900/10",
-                log.level === 'WARN' && !isDimmed && "bg-yellow-900/10"
+                log.level === 'WARN' && !isDimmed && "bg-yellow-900/10",
+                // Focused highlight with animation
+                isFocused && "!bg-yellow-500/30 animate-pulse"
             )}
         >
             <div className="flex">
@@ -85,7 +133,7 @@ export const LogRow: React.FC<LogRowProps> = React.memo(({ log, isDimmed, style 
                     {log.id + 1}
                 </span>
                 <span className="break-all whitespace-pre-wrap">
-                    <HighlightedText text={log.originalLine} />
+                    <HighlightedText text={log.originalLine} searchQuery={searchQuery} />
                 </span>
             </div>
         </div>
