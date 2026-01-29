@@ -5,6 +5,9 @@ interface LogState {
     logs: LogEntry[];
     isParsing: boolean;
     fileName: string | null;
+    rawContent: string | null;
+    pendingFileName: string | null;
+    isParseConfigOpen: boolean;
 
     // Timeline State
     startTime: number; // Global start
@@ -24,6 +27,9 @@ interface LogState {
 
     // Actions
     setLogs: (logs: LogEntry[], fileName: string) => void;
+    setRawContent: (content: string, fileName: string) => void;
+    clearRawContent: () => void;
+    setParseConfigOpen: (open: boolean) => void;
     setParsing: (isParsing: boolean) => void;
     setSelectedRange: (range: [number, number] | null) => void;
     setDataZoomRange: (range: [number, number] | null) => void;
@@ -38,6 +44,9 @@ export const useLogStore = create<LogState>((set) => ({
     logs: [],
     isParsing: false,
     fileName: null,
+    rawContent: null,
+    pendingFileName: null,
+    isParseConfigOpen: false,
     startTime: 0,
     endTime: 0,
     granularity: 0, // auto
@@ -49,13 +58,19 @@ export const useLogStore = create<LogState>((set) => ({
 
     setLogs: (logs, fileName) => {
         if (logs.length === 0) {
-            set({ logs: [], fileName, startTime: 0, endTime: 0, selectedRange: null, dataZoomRange: null, searchQuery: '', isSearchPanelOpen: false, focusedLogId: null });
+            set({ logs: [], fileName, startTime: 0, endTime: 0, selectedRange: null, dataZoomRange: null, searchQuery: '', isSearchPanelOpen: false, focusedLogId: null, isParseConfigOpen: false });
             return;
         }
         const startTime = logs[0].timestamp;
         const endTime = logs[logs.length - 1].timestamp;
-        set({ logs, fileName, startTime, endTime, selectedRange: null, dataZoomRange: null, searchQuery: '', focusedLogId: null });
+        set({ logs, fileName, startTime, endTime, selectedRange: null, dataZoomRange: null, searchQuery: '', focusedLogId: null, isParseConfigOpen: false });
     },
+
+    setRawContent: (rawContent, pendingFileName) => set({ rawContent, pendingFileName, isParseConfigOpen: true }),
+
+    clearRawContent: () => set({ rawContent: null, pendingFileName: null, isParseConfigOpen: false }),
+
+    setParseConfigOpen: (isParseConfigOpen) => set({ isParseConfigOpen }),
 
     setParsing: (isParsing) => set({ isParsing }),
 
@@ -71,6 +86,6 @@ export const useLogStore = create<LogState>((set) => ({
 
     setFocusedLogId: (focusedLogId) => set({ focusedLogId }),
 
-    clearLogs: () => set({ logs: [], fileName: null, startTime: 0, endTime: 0, selectedRange: null, dataZoomRange: null, granularity: 0, searchQuery: '', isSearchPanelOpen: false, focusedLogId: null }),
+    clearLogs: () => set({ logs: [], fileName: null, startTime: 0, endTime: 0, selectedRange: null, dataZoomRange: null, granularity: 0, searchQuery: '', isSearchPanelOpen: false, focusedLogId: null, rawContent: null, pendingFileName: null, isParseConfigOpen: false }),
 }));
 

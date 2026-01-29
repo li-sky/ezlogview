@@ -6,9 +6,16 @@ import { SearchPanel } from '../Console/SearchPanel';
 import { useLogStore } from '../../store/useLogStore';
 
 // Inner content component for vertical layout
-const MainContent: React.FC<{ showSearchButton: boolean; onSearchToggle: () => void }> = ({
+const MainContent: React.FC<{
+    showSearchButton: boolean;
+    onSearchToggle: () => void;
+    onParseConfigOpen: () => void;
+    canOpenParseConfig: boolean;
+}> = ({
     showSearchButton,
-    onSearchToggle
+    onSearchToggle,
+    onParseConfigOpen,
+    canOpenParseConfig
 }) => (
     <Group orientation="vertical" className="h-full">
         {/* Top Pane: Log Console */}
@@ -16,18 +23,33 @@ const MainContent: React.FC<{ showSearchButton: boolean; onSearchToggle: () => v
             <div className="h-full flex flex-col min-w-0">
                 <div className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-zinc-700 h-10 shrink-0 min-w-0">
                     <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">Log Console</span>
-                    <button
-                        onClick={onSearchToggle}
-                        className={`text-xs px-2 py-1 rounded border transition-colors shrink-0 ${!showSearchButton
-                            ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
-                            : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'
-                            }`}
-                        title="搜索 (Ctrl+F)"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onParseConfigOpen}
+                            disabled={!canOpenParseConfig}
+                            className={`text-xs px-2 py-1 rounded border transition-colors shrink-0 ${canOpenParseConfig
+                                ? 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+                                : 'bg-zinc-800/50 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                                }`}
+                            title={canOpenParseConfig ? '解析配置' : '请先上传文件'}
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={onSearchToggle}
+                            className={`text-xs px-2 py-1 rounded border transition-colors shrink-0 ${!showSearchButton
+                                ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
+                                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+                                }`}
+                            title="搜索 (Ctrl+F)"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden min-w-0">
                     <LogList />
@@ -52,7 +74,7 @@ const MainContent: React.FC<{ showSearchButton: boolean; onSearchToggle: () => v
 );
 
 export const MainLayout: React.FC = () => {
-    const { isSearchPanelOpen, setSearchPanelOpen } = useLogStore();
+    const { isSearchPanelOpen, setSearchPanelOpen, rawContent, setParseConfigOpen } = useLogStore();
 
     // Handle Ctrl+F keyboard shortcut
     useEffect(() => {
@@ -74,6 +96,8 @@ export const MainLayout: React.FC = () => {
                 <MainContent
                     showSearchButton={true}
                     onSearchToggle={() => setSearchPanelOpen(true)}
+                    onParseConfigOpen={() => setParseConfigOpen(true)}
+                    canOpenParseConfig={Boolean(rawContent)}
                 />
             </div>
         );
@@ -95,6 +119,8 @@ export const MainLayout: React.FC = () => {
                         <MainContent
                             showSearchButton={false}
                             onSearchToggle={() => setSearchPanelOpen(false)}
+                            onParseConfigOpen={() => setParseConfigOpen(true)}
+                            canOpenParseConfig={Boolean(rawContent)}
                         />
                     </div>
                 </Panel>

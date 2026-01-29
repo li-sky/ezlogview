@@ -1,12 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { useLogStore } from '../../store/useLogStore';
-import { parseLogs } from '../../utils/parser';
 
 export const FileUploader: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { setLogs, setParsing, isParsing } = useLogStore();
+    const { setParsing, isParsing, setRawContent } = useLogStore();
 
     const processFile = useCallback((file: File) => {
         setError(null);
@@ -21,11 +20,10 @@ export const FileUploader: React.FC = () => {
                 const content = e.target?.result as string;
                 // Run parsing in a microtask or setTimeout to avoid freezing UI immediately if sync
                 setTimeout(() => {
-                    const logs = parseLogs(content);
-                    if (logs.length === 0) {
-                        setError('No valid logs found in the file. Check the format.');
+                    if (!content || !content.trim()) {
+                        setError('File is empty or contains only whitespace.');
                     } else {
-                        setLogs(logs, file.name);
+                        setRawContent(content, file.name);
                     }
                     setParsing(false);
                 }, 10);
@@ -42,7 +40,7 @@ export const FileUploader: React.FC = () => {
         };
 
         reader.readAsText(file);
-    }, [setLogs, setParsing]);
+    }, [setParsing, setRawContent]);
 
     const onDragOver = (e: React.DragEvent) => {
         e.preventDefault();

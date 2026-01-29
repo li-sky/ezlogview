@@ -10,9 +10,10 @@ export interface LogEntry {
 
 export interface ParsingRule {
     regex: RegExp;
-    timestampGroup: string; // Group name or index
-    levelGroup: string;
-    messageGroup: string;
+    timestampGroup: string | number; // Group name or index
+    timestampFormats?: string[]; // date-fns parse formats
+    levelGroup?: string | number;
+    messageGroup?: string | number;
 }
 
 // Stats for the specific time window

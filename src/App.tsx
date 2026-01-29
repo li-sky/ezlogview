@@ -1,9 +1,10 @@
 import { useLogStore } from './store/useLogStore';
 import { FileUploader } from './components/Upload/FileUploader';
 import { MainLayout } from './components/Layout/MainLayout';
+import { ParseConfigPanel } from './components/Upload/ParseConfigPanel';
 
 function App() {
-  const { fileName, clearLogs } = useLogStore();
+  const { fileName, clearLogs, rawContent, isParseConfigOpen } = useLogStore();
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#1e1e1e] text-zinc-300">
@@ -29,7 +30,9 @@ function App() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden relative">
-        {!fileName ? (
+        {rawContent && isParseConfigOpen ? (
+          <ParseConfigPanel />
+        ) : !fileName ? (
           <FileUploader />
         ) : (
           <MainLayout />
